@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html>
+  <head> </head>
+  <body>
+    <div id="root"></div>
+    
+    <script>
+      function isHooked(obj, key) {
+        if (typeof key === "symbol") return false;
+        if (key.startsWith("$$")) return false;
+        if (key in obj.__proto__) return false;
+        if (Array.isArray(obj)) {
+          return !isNaN(key);
+        }
+        return true;
+      }
+
+      function inPrototype(key) {
+        return (
+          key in ChomRef.prototype &&
+          typeof ChomRef.prototype[key] === "function"
+        );
+      }
+
+      class ChomRefHandler {
+        constructor(hookerReceiver) {
+          this.hookerReceiver = hookerReceiver;
+          this.dep = [];
+        }
+        
+        beforeGet({hooker=this.hookerReceiver.$$, target, hookerReceiver=this.hookerReceiver, targetReceiver}) { }
+        afterGet({hooker=this.hookerReceiver.$$, target, hookerReceiver=this.hookerReceiver, targetReceiver}) {}
+        
+        beforeSet({hooker=this.hookerReceiver.$$, target, hookerReceiver=this.hookerReceiver, targetReceiver, value}) {}
+        afterSet({hooker=this.hookerReceiver.$$, target, hookerReceiver=this.hookerReceiver, targetReceiver, value}) {}
+        
+        beforeDelete({hooker=this.hookerReceiver.$$, target, hookerReceiver=this.hookerReceiver, targetReceiver}) {}
+        afterDelete({hooker=this.hookerReceiver.$$, target, hookerReceiver=this.hookerReceiver, targetReceiver}) {}
+        
+        addDep(ref, hookname) {
+          this.dep.push(ref);
+          ref.$$hook(hookname, this);
+        }
+        
+        refreshHookerReceiver() {
+          this.hookerReceiver = this.hookerReceiver.$$;
+        }
+      }
+      
+      class ChomRefCustomHandler extends ChomRefHandler {
+        constructor(hookerReceiver, {beforeGet, afterGet, beforeSet, afterSet, beforeDelete, afterDelete}) {
+          super(hookerReceiver);
+          
+          this._beforeGet = beforeGet;
+          this._afterGet = afterGet;
+          this._beforeSet = beforeSet;
+          this._afterSet = afterSet;
+          this._beforeDelete = beforeDelete;
+          this._afterDelete = afterDelete;
+        }
+        
+        beforeGet({hooker=this.hookerReceiver.$$, target, hookerReceiver=this.hookerReceiver, targetReceiver}) { if (typeof this._beforeGet === "function") this._beforeGet({hooker, target, hookerReceiver, targetReceiver}); }
+        afterGet({hooker=this.hookerReceiver.$$, target, hookerReceiver=this.hookerReceiver, targetReceiver}) { if (typeof this._afterGet === "function") this._afterGet({hooker, target, hookerReceiver, targetReceiver}); }
+        
+        beforeSet({hooker=this.hookerReceiver.$$, target, hookerReceiver=this.hookerReceiver, targetReceiver, value}) { if (typeof this._beforeSet === "function") this._beforeSet({hooker, target, hookerReceiver, targetReceiver, value}); }
+        afterSet({hooker=this.hookerReceiver.$$, target, hookerReceiver=this.hookerReceiver, targetReceiver, value}) { if (typeof this._afterSet === "function") this._afterSet({hooker, target, hookerReceiver, targetReceiver, value}); }
+        
+        beforeDelete({hooker=this.hookerReceiver.$$, target, hookerReceiver=this.hookerReceiver, targetReceiver}) { if (typeof this._beforeDelete === "function") this._beforeDelete({hooker, target, hookerReceiver, targetReceiver}); }
+        afterDelete({hooker=this.hookerReceiver.$$, target, hookerReceiver=this.hookerReceiver, targetReceiver}) { if (typeof this._afterDelete === "function") this._afterDelete({hooker, target, hookerReceiver, targetReceiver}); }
+      }
+      
+      class ChomRefElement extends ChomRefHandler {
+        constructor(hookerReceiver, parentEle, beforeBuild=(()=>{})) {
+          super(hookerReceiver);
+          beforeBuild.call(this);
+          this.parentEle = parentEle;
+          this.performBuild(parentEle);
+          
+        }
+        
+        build(parentEle, ref=this.hookerReceiver) {
+          return false;
+        }
+        
+        performBuild(parentEle, ref=this.hookerReceiver) {
+          if (this.ele) return this.ele;
+          var res = this.build(parentEle, ref);
+          if (res && res.ele) {
+            this.ele = Array.isArray(this.ele) ? res.ele : [res.ele];
+            if (res.childContainer) {
+              this.childContainer = Array.isArray(this.childContainer) ? res.childContainer : [res.childContainer];
+            }
+          }
+        }
+        
+        update(ele, ref=this.hookerReceiver) {
+          
+        }
+        
+        performUpdate(ele=this.ele, ref=this.hookerReceiver) {
+          
+          if (ele) {
+            for(var e of ele) {
+              //console.log("performUpdate", e)
+              this.update(e, ref);
+            }
+          }
+        }
+        
+        addChild(ref, childEle, childContainer) {
+          childContainer.appendChild(childEle);
+          return childEle;
+        }
+        
+        performAddChild(ref, childEle, childContainer=this.childContainer) {
+          var childGroup = [];
+          if (childContainer) {
+            for(var e of childContainer) {
+              var subGroup = e.querySelectorAll(":scope > .chref-ele-key-"+ref.$$key);
+              if (subGroup.length == 0) {
+                subGroup = this.addChild(ref, childEle, childContainer);
+                if (!Array.isArray(subGroup)) subgroup = [subGroup]
+              }
+              childGroup = [...childGroup, ...subGroup];
+            }
+          }
+          for(var child of childGroup) {
+            child.classList.add('chref-ele-order-'+ref.$$key)
+            child.classList.add('chref-ele-key-'+ref.$$key)
+            child.style.order = parseInt(ref.$$key);
+          }
+        }
+        
+        beforeGet({hooker=this.hookerReceiver.$$, target, hookerReceiver=this.hookerReceiver, targetReceiver}) {}
+        afterGet({hooker=this.hookerReceiver.$$, target, hookerReceiver=this.hookerReceiver, targetReceiver}) {}
+        
+        beforeSet({hooker=this.hookerReceiver.$$, target, hookerReceiver=this.hookerReceiver, targetReceiver, value}) {}
+        afterSet({hooker=this.hookerReceiver.$$, target, hookerReceiver=this.hookerReceiver, targetReceiver, value}) {
+          this.performBuild(this.parentEle);
+          this.performUpdate();
+        }
+        
+        beforeDelete({hooker=this.hookerReceiver.$$, target, hookerReceiver=this.hookerReceiver, targetReceiver}) {}
+        afterDelete({hooker=this.hookerReceiver.$$, target, hookerReceiver=this.hookerReceiver, targetReceiver}) {
+          this.ele.parentNode.removeChild(this.ele);
+          this.ele = undefined;
+          this.childContainer = undefined;
+        }
+      }
+
+      class ChomRefTemplate {
+        $$get() {
+          return this.$$parent[this.$$parentKey];
+        }
+
+        $$set(value) {
+          this.$$parent[this.$$parentKey] = value;
+          return this.$$get();
+        }
+        
+        $$performHookSingle(fname, moreargs = {}) {
+          //console.log("performHook", fname, this)
+          var hookFunc = this.$$hookFunc;
+          for(var key in hookFunc) {
+            if (!hookFunc[key][fname].locked) {
+              hookFunc[key][fname].locked = true;
+              if (fname === "afterSet") hookFunc[key].refreshHookerReceiver();
+              moreargs.target = moreargs.targetReceiver.$$;
+              hookFunc[key][fname](moreargs);
+              hookFunc[key][fname].locked = false;
+            }
+          }
+        }
+        
+        $$performHookBP(fname, moreargs = {}) {
+          this.$$performHookSingle(fname, moreargs);
+          if (!this.$$parent) return;
+          this.$$parent.$$performHookBP(fname, moreargs);
+        }
+        
+        $$performHook(fname, moreargs = {}) {
+          moreargs = {targetReceiver: this, ...moreargs};
+          //console.log("performHookWrapper", fname);
+          if (fname === "afterSet" || fname === "beforeSet") this.$$performHookBP(fname, moreargs);
+          else this.$$performHookSingle(fname, moreargs);
+        }
+        
+        $$hook(name, fname, fn) {
+          var hookFunc = this.$$hookFunc;
+          if (typeof fn === "undefined") {
+            if (fname instanceof ChomRefHandler) {
+              hookFunc[name] = fname;
+            } else {
+              hookFunc[name] = new fname(this);
+            }
+          } else {
+            hookFunc[name] = new ChomRefCustomHandler(this, {[fname]: fn});
+          }
+          //Reflect.set(hookFunc, name, 888)
+          //console.log(this,hookFunc)
+        }
+        
+        $$childPerform(name, fn) {
+          this.$$childPerformFunc[name] = fn;
+          for(var key in this) {
+            fn(this[key]);
+          }
+        }
+        
+        $$doChildPerform(child) {
+          for(var key in this.$$childPerformFunc) {
+            this.$$childPerformFunc[key](child);
+          }
+        }
+        
+        $$attachEle(name, eleClass, parentEle) {
+          this.$$hook(name, new eleClass(this,parentEle));
+        }
+      }
+
+      var proxyHandler = {
+        get(obj, key, receiver) {
+          //if (isHooked(obj, key)) console.log("GET", key, obj);
+          
+          if (key === "$$chomRef") return true;
+          if (key === "valueOf") return Reflect.get(obj, Symbol.toPrimitive);
+          if (key === "$$key") return Reflect.get(obj, "$$parentKey");
+          if (typeof key === "symbol") return Reflect.get(...arguments);
+          if (key in obj.__proto__) return Reflect.get(obj, key);
+          
+          //key = String(key);
+
+          var classTemplate = Reflect.get(obj, "$$class");
+
+          if (
+            key in classTemplate.prototype &&
+            typeof classTemplate.prototype[key] === "function"
+          ) {
+            //console.log("this", receiver);
+            return classTemplate.prototype[key].bind(receiver);
+          }
+
+          var curr = Reflect.get(...arguments);
+          
+          if (isHooked(obj, key) && typeof curr === "undefined") {
+            Reflect.set(obj, key, ChomRef(undefined, {
+              parent: receiver,
+              parentKey: key,
+              root: Reflect.get(obj, "$$root")
+            }))
+            curr = Reflect.get(...arguments);
+          }
+          
+          var parent = Reflect.get(obj, "$$parent");
+          var parentKey = Reflect.get(obj, "$$parentKey");
+
+          if (key.startsWith("$$getRaw$")) {
+            key = key.substr(9);
+            //console.log('getRaw', key, obj);
+            var raw = Reflect.get(obj, key);
+            if (raw.$$chomRef) {
+              return raw;
+            } else {
+              var res = ChomRef(raw, {
+                parent: receiver,
+                parentKey: key,
+                root: Reflect.get(obj, "$$root")
+              });
+              Reflect.set(obj, key, res);
+              return res;
+            }
+            //return 5;
+          }
+          if (key === "$$") return classTemplate.prototype.$$get.call(receiver);
+          if (key.startsWith("$$") && key !== "$$mark") return Reflect.get(...arguments);
+          if (typeof parent === "undefined") {
+            var res = Reflect.get(obj, key);
+          } else {
+            var res = parent["$$getRaw$" + parentKey]["$$getRaw$" + key];
+          }
+          if (isHooked(obj, key)) {
+            //console.log("GET", key, obj);
+            var performHook = res.$$performHook;
+            performHook("afterGet");
+          }
+          return res;
+        },
+        set(obj, key, value, receiver) {
+          var curr = receiver[key];
+          if (isHooked(obj, key)) {
+            //console.log("SET", key, value, obj);
+            var performHook = curr.$$performHook;
+            performHook("beforeSet", {value});
+          }
+          var $$hookFunc = {};
+          var $$childPerformFunc = {};
+          if (curr && curr.$$chomRef) {
+            $$hookFunc = curr.$$hookFunc;
+            $$childPerformFunc = curr.$$childPerformFunc;
+          }
+          var res = Reflect.set(obj, key, ChomRef(value, {
+            parent: receiver,
+            parentKey: key,
+            root: Reflect.get(obj, "$$root"),
+            $$hookFunc,
+            $$childPerformFunc
+          }));
+          curr = Reflect.get(obj, key);
+          if (isHooked(obj, key)) {
+            //console.log("SET", key, value, obj);
+            var performHook = curr.$$performHook;
+            performHook("afterSet", {value});
+          }
+          
+          return res;
+        },
+        deleteProperty(obj, key) {
+          if (isHooked(obj, key)) console.log("DELETE", obj, key);
+          var res = Reflect.deleteProperty(...arguments);
+          return res;
+        }
+      };
+
+      function ChomRef(value, options) {
+        var res;
+        
+        if (typeof value !== "object") {
+          var rawValue = value;
+          value = {
+            value,
+            [Symbol.toPrimitive](hint) {
+              return rawValue;
+            }
+          };
+        }
+        
+        res = new Proxy(value, proxyHandler);
+
+        if (!options) options = {};
+        if (!options.root && !options.allowRoot) {
+          options.root = ChomRef({ value: res }, { allowRoot: true });
+          options.parent = options.root;
+          options.parentKey = "value";
+          options.newRoot = true;
+        }
+        
+        /*Object.defineProperty(value, "$$chomRef", {
+          value: true,
+          enumerable: false,
+          writable: true
+        });*/
+
+        Object.defineProperty(value, "$$parent", {
+          value: options.parent,
+          enumerable: false,
+          writable: true
+        });
+
+        Object.defineProperty(value, "$$parentKey", {
+          value: options.parentKey,
+          enumerable: false,
+          writable: true
+        });
+
+        Object.defineProperty(value, "$$root", {
+          value: options.root || res,
+          enumerable: false,
+          writable: true
+        });
+
+        Object.defineProperty(value, "$$class", {
+          value: options.classTemplate || ChomRefTemplate,
+          enumerable: false,
+          writable: true
+        });
+        
+        Object.defineProperty(value, "$$hookFunc", {
+          value: options.$$hookFunc || {},
+          enumerable: false,
+          writable: true
+        });
+        
+        Object.defineProperty(value, "$$mark", {
+          value: {},
+          enumerable: false,
+          writable: true
+        });
+        
+        Object.defineProperty(value, "$$childPerformFunc", {
+          value: options.$$childPerformFunc || {},
+          enumerable: false,
+          writable: true
+        });
+        
+        if (options.newRoot) {
+          res.$$get();
+        }
+        
+        if (options.parent) options.parent.$$doChildPerform(res);
+        
+        return res;
+      }
+      
+      //testing
+      var ref1 = new ChomRef({x:{y:5}, a:8})
+      ref1.$$hook("test", "beforeSet", (args)=>console.log(args));
+      ref1.$$childPerform("test", x=>console.log(x));
+      console.log(ref1.x);
+      
+      var refnum = new ChomRef(5);
+      
+      class NumEle extends ChomRefElement {
+        build(parentEle, ref) {
+          var div = document.createElement("div")
+          div.textContent = ref.valueOf();
+          parentEle.appendChild(div);
+          
+          return {ele: div}
+        }
+        
+        update(ele, ref) {
+          ele.textContent = ref.valueOf();
+        }
+      }
+      
+      var rootEle = document.getElementById("root")
+      
+      refnum.$$attachEle("test", NumEle, rootEle);
+    </script>
+  </body>
+</html>
