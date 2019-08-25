@@ -1,10 +1,3 @@
-<!DOCTYPE html>
-<html>
-  <head> </head>
-  <body>
-    <div id="root"></div>
-    
-    <script>
       function isHooked(obj, key) {
         if (typeof key === "symbol") return false;
         if (key.startsWith("$$")) return false;
@@ -540,102 +533,7 @@
         
         return res;
       }
-      
-      //testing
-      var ref1 = new ChomRef({x:{y:5}, a:8})
-      ref1.$$hook("test", "beforeSet", (args)=>console.log(args));
-      ref1.$$childPerform("test", x=>console.log(x));
-      console.log(ref1.x);
-      
-      var refnum = new ChomRef(5);
-      
-      class NumEle extends ChomRefElement {
-        build(ref) {
-          var div = document.createElement("div")
-          div.textContent = ref;
-          
-          return {ele: div}
-        }
-        
-        update(ele, ref) {
-          ele.textContent = ref;
-        }
-      }
-      
-      var rootEle = document.getElementById("root")
-      
-      refnum.$$attachEle("test", NumEle, rootEle);
-      
-      function makeid(length) {
-        var result = "";
-        var characters =
-          "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-        var charactersLength = characters.length;
-        for (var i = 0; i < length; i++) {
-          result += characters.charAt(Math.floor(Math.random() * charactersLength));
-        }
-        return result;
-      }
-      
-      data = []
-      for (var i = 0; i < 100; i++) {
-        data.push({
-          a: makeid(50),
-          b: {
-            a: 8,
-            b: makeid(100),
-            c: "asdasdkasd;aksdasldlsa;kdl;kasldklas;kdlkl;",
-            d: {
-              e: Math.random()
-            }
-          },
-          f: makeid(1000),
-          g: {
-            h: Math.random(),
-            i: makeid(500)
-          }
-        });
-      }
-            
-      var refarr = new ChomRef(data);
-      
-      class JSONEle extends ChomRefElement {
-        build(ref) {
-          var div = document.createElement("div")
-          
-          return {ele: div}
-        }
-        
-        update(ele, ref) {
-          ele.textContent = '{"h":'+ref.g.h+',"i":'+ref.g.i+"}";
-        }
-      }
-      
-      class ArrEle extends ChomRefElement {
-        build(ref) {
-          var div = document.createElement("div")
-          var head = document.createElement("div")
-          head.textContent = "Array";
-          var body = document.createElement("div");
-          div.append(head,body);
-          
-          
-          
-          return {ele: div, childContainer: body};
-        }
-        
-        update(ele, ref) {
-          
-        }
-        
-        afterAttached(ref) {
-          
-        }
-      }
-      
-      refarr.$$attachEle("test", ArrEle, rootEle);
-      refarr.$$attachEle("test2", ArrEle, rootEle);
-      refarr.$$childPerform("addNumEle", (child)=>child.$$attachEle("numChild", JSONEle, refarr));
-    </script>
-  </body>
-</html>
+
+if (typeof module !== "undefined") {
+  module.exports = {ChomRef, ChomRefTemplate, ChomRefCustomHandler, ChomRefElement};
+}
